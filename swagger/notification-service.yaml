@@ -1,0 +1,267 @@
+openapi: 3.0.2
+info:
+  version: '1.0.0'
+  title: 'Notification Service API'
+  description: 'This is a notification microservice for Metalnx'
+  contact:
+    email: deep.patel@nih.gov
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+- url: http://localhost:8888
+  description: Local dev server
+
+# Apply the security globally to all operations
+security: 
+  - BearerAuth:
+    - read
+
+tags:
+- name: "Notification"
+  description: "Notification Operations"
+
+paths:
+  /addNotification:
+    post:
+      tags:
+      - Notification
+      summary: Add new notification
+      description: Query database to insert new notification
+      operationId: addNotification
+      requestBody:
+        description: Schema to add new notification
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/addNotification'
+              example:
+                recipient_id: user_1
+                subject: notification subject
+                message: notification message
+                severity_level: 2
+                notification_type: workflow
+      responses:
+        201:
+          description: notification added successfully
+        400:
+          description: bad request
+
+  /getNotification:
+    get:
+      tags:
+      - Notification
+      summary: Reterieve notifications
+      description: Query database to get all the notifications for session user
+      operationId: getNotifications
+      responses:
+        200:
+          description: List of all notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/notificationArray'
+
+  /markSeen:
+    put:
+      tags:
+      - Notification
+      summary: Update notification as seen
+      description: Query database to mark of notifications as seen once user is validated of ownership
+      operationId: markSeen
+      requestBody:
+        description: List of uuids one for each notification
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/uuidList'
+      responses:
+        200:
+          description: notifications marked seen successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bulkNotificationOptStatus'
+        409:
+          description: conflict in update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bulkNotificationOptStatus'
+
+  /getUnseenNotifications:
+    get:
+      tags:
+        - Notification
+      summary: Reterieve all unseen notifications
+      description: Query database to get all unseen notifications for session user
+      operationId: getUnseenNotifications
+      responses:
+        200:
+          description: List of all notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/notificationArray'
+
+  /getUnseenNotificationsCount:
+    get:
+      tags:
+        - Notification
+      summary: Reterieve all unseen notifications
+      description: Query database to get all unseen notifications for session user
+      operationId: getUnseenNotificationsCount
+      responses:
+        200:
+          description: count reterieved sucessfully
+          content:
+            application/json:
+              schema:
+               $ref: '#/components/schemas/count'
+  
+  /deleteNotifications:
+    put:
+      tags:
+        - Notification
+      summary: Delete notifications
+      description: Query database to delete notifications once user is validated of ownership
+      operationId: deleteNotifications
+      requestBody:
+        description: List of uuids one for each notification
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/uuidList'
+      responses:
+        200:
+          description: notifications marked seen successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bulkNotificationOptStatus'
+        409:
+          description: conflict in update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/bulkNotificationOptStatus'
+
+
+components:
+  schemas:
+    addNotification:
+      type: object
+      required:
+        - recipient_id
+        - subject
+        - message
+        - severity_level
+        - notification_type
+      properties:
+        recipient_id:
+          type: string
+          description: notification recipient's userId
+        subject:
+          type: string
+          description: notification subject
+        message:
+          type: string
+          description: notification message content
+        severity_level:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 5
+          description: severity level of notification an integer value between 1 and 5
+        notification_type:
+          type: string
+          description: type of notification options are workflow, permission, system
+        data_location_url:
+          type: string
+          format: uri
+          description: notification associated logical location of data 
+    
+    notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          description: an auto-generated sequence by postgres db
+        notification_id:
+          type: string
+          format: uuid
+          description: an unique uuid auto-generated by postgres db
+        sender_id:
+          type: string
+          description: notification sender's userId
+        recipient_id:
+          type: string
+          description: notification recipient's userId
+        subject:
+          type: string
+          description: notification subject
+        message:
+          type: string
+          description: notification message content
+        seen:
+          type: boolean
+          default: false
+          description: boolean for user's seen/unseen notification status
+        deleted:
+          type: boolean
+          default: false
+          description: boolean for deleted notification, notification will not be deleted from postgres db
+        date_created:
+          type: string
+          format: date-time
+          description: timestamp auto-generated by postgres db
+        severity_level:
+          type: integer
+          format: int32
+          description: severity level of notification an integer value between 1 and 5
+        notification_type:
+          type: string
+          description: type of notification options are workflow, permission, system
+        data_location_url:
+          type: string
+          format: uri
+          description: notification associated logical location of data 
+    
+    notificationArray:
+      type: array
+      items:
+        $ref: '#/components/schemas/notification'
+          
+    uuidList:
+      type: array
+      items:
+        type: string
+        format: uuid
+        description: list of unique uuid one for each notification
+    
+    bulkNotificationOptStatus:
+      type: array
+      items:
+        type: object
+        required:
+          - notification_id
+          - operation_status
+        properties:
+          notification_id:
+            type: string
+            format: uuid
+            description: an unique uuid auto-generated by postgres db
+          operation_status:
+            type: boolean
+
+    count:
+      type: integer
+      format: int32
+      description: count of unseen notifications
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
